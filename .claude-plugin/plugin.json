@@ -1,9 +1,10 @@
 {
-  "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/docs/plugin-schema.json",
   "name": "java-architect-skills",
   "version": "1.0.0",
-  "description": "MCP skills for Java Architects - Spring code review, PMD analysis, AOP detection, and best practices enforcement",
-  "author": "zmlio",
+  "description": "MCP skills for Java Architects - Spring code review, refactoring, and architecture assessment",
+  "author": {
+    "name": "zmlio"
+  },
   "license": "MIT",
   "mcpServers": {
     "java-architect-skills": {
