@@ -3,6 +3,9 @@
  * Custom error types and error handling helpers
  */
 
+import fs from "fs";
+import path from "path";
+
 /**
  * Custom error types
  */
@@ -152,7 +155,7 @@ export function handleError(error, context = {}) {
 /**
  * Validate file exists and is readable
  */
-export function validateFile(filePath) {
+export async function validateFile(filePath) {
   try {
     if (!fs.existsSync(filePath)) {
       throw new FileError(
@@ -170,7 +173,7 @@ export function validateFile(filePath) {
     }
 
     // Try to read to verify accessibility
-    fs.accessSync(filePath, fs.constants.R_OK);
+    fs.readFileSync(filePath, "utf-8");
 
     return true;
   } catch (error) {
@@ -187,15 +190,15 @@ export function validateFile(filePath) {
 /**
  * Validate directory exists and is accessible
  */
-export function validateDirectory(dirPath) {
-  try {
-    if (!fs.existsSync(dirPath)) {
-      throw new FileError(
-        `Directory not found: ${dirPath}`,
-        dirPath
-      );
-    }
+export async function validateDirectory(dirPath) {
+  if (!fs.existsSync(dirPath)) {
+    throw new FileError(
+      `Directory not found: ${dirPath}`,
+      dirPath
+    );
+  }
 
+  try {
     const stats = fs.statSync(dirPath);
     if (!stats.isDirectory()) {
       throw new FileError(
@@ -203,19 +206,24 @@ export function validateDirectory(dirPath) {
         dirPath
       );
     }
-
-    fs.accessSync(dirPath, fs.constants.R_OK);
-
-    return true;
   } catch (error) {
-    if (error instanceof FileError) {
-      throw error;
-    }
     throw new FileError(
-      `Cannot access directory: ${dirPath}`,
+      `Cannot stat path: ${dirPath}`,
       dirPath
     );
   }
+
+  try {
+    // Try to read directory to verify access
+    fs.readdirSync(dirPath);
+  } catch (error) {
+    throw new FileError(
+      `Cannot read directory (permission denied?): ${dirPath}`,
+      dirPath
+    );
+  }
+
+  return true;
 }
 
 /**
