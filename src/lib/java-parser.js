@@ -1,113 +1,124 @@
 /**
  * Java Code Parser Utility
  * Provides utilities for parsing and analyzing Java code
+ * Uses enhanced parser with tokenization for better accuracy
  */
 
 import fs from "fs";
+import path from "path";
+
+// Re-export from enhanced parser
+export {
+  parseClassInfo as parseClassInfoEnhanced,
+  countLOC,
+  findJavaFiles,
+  extractMethodsEnhanced
+} from "./java-parser-enhanced.js";
 
 /**
- * Extract class information from Java source
+ * Legacy parseClassInfo - maintained for backward compatibility
+ * Uses enhanced parser internally
  */
 export function parseClassInfo(content) {
-  const classInfo = {
-    className: null,
-    packageName: null,
-    imports: [],
-    annotations: [],
-    fields: [],
-    methods: [],
-    interfaces: [],
-    extendsClass: null,
-    isAbstract: false,
-    isInterface: false,
-    isEnum: false
-  };
-
-  // Package
-  const packageMatch = content.match(/package\s+([\w.]+);/);
-  if (packageMatch) classInfo.packageName = packageMatch[1];
-
-  // Imports
-  const importMatches = content.matchAll(/import\s+(?:static\s+)?([\w.]+);/g);
-  classInfo.imports = Array.from(importMatches).map(m => m[1]);
-
-  // Class/Interface/Enum declaration
-  const declMatch = content.match(/(?:public\s+)?(abstract\s+)?(class|interface|enum)\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w\s,]+))?/);
-  if (declMatch) {
-    classInfo.isAbstract = !!declMatch[1];
-    classInfo.isInterface = declMatch[2] === 'interface';
-    classInfo.isEnum = declMatch[2] === 'enum';
-    classInfo.className = declMatch[3];
-    classInfo.extendsClass = declMatch[4] || null;
-    if (declMatch[5]) {
-      classInfo.interfaces = declMatch[5].split(',').map(s => s.trim());
-    }
-  }
-
-  // Annotations
-  const annotationMatches = content.matchAll(/@(\w+)(?:\([^)]*\))?/g);
-  classInfo.annotations = Array.from(annotationMatches).map(m => m[1]);
-
-  // Methods
-  const methodPattern = /(?:@.*?)?[\s]*(?:public|private|protected)?\s*(?:static)?\s*(?:final)?\s*(?:abstract)?\s*(?:[\w<>[\],\s]*)\s+(\w+)\s*\(([^)]*)\)\s*(?:throws\s+[\w,\s]+)?\s*(?:{|;)/g;
-  let methodMatch;
-  while ((methodMatch = methodPattern.exec(content)) !== null) {
-    const params = methodMatch[2].split(',').filter(p => p.trim());
-    classInfo.methods.push({
-      name: methodMatch[1],
-      parameters: params,
-      line: content.substring(0, methodMatch.index).split('\n').length
-    });
-  }
-
-  // Fields
-  const fieldPattern = /(?:@.*?)?[\s]*(?:public|private|protected)?\s*(?:static)?\s*(?:final)?\s*(?:[\w<>[\],\s]+)\s+(\w+)\s*(?:=|;)/g;
-  let fieldMatch;
-  while ((fieldMatch = fieldPattern.exec(content)) !== null) {
-    classInfo.fields.push({
-      name: fieldMatch[1],
-      line: content.substring(0, fieldMatch.index).split('\n').length
-    });
-  }
-
-  return classInfo;
+  return parseClassInfoEnhanced(content);
 }
 
 /**
- * Count lines of code (excluding comments and blank lines)
+ * Extract methods - maintained for backward compatibility
  */
-export function countLOC(content) {
-  const lines = content.split('\n');
-  let loc = 0;
-  let inBlockComment = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Skip block comments
-    if (trimmed.startsWith('/*')) {
-      inBlockComment = true;
-      if (trimmed.endsWith('*/')) inBlockComment = false;
-      continue;
-    }
-    if (inBlockComment) {
-      if (trimmed.endsWith('*/')) inBlockComment = false;
-      continue;
-    }
-
-    // Skip single-line comments and blank lines
-    if (trimmed.startsWith('//') || trimmed === '' || trimmed.startsWith('*')) {
-      continue;
-    }
-
-    loc++;
-  }
-
-  return loc;
+export function extractMethods(content) {
+  return extractMethodsEnhanced(content);
 }
 
 /**
- * Calculate cyclomatic complexity
+ * Extract package information from Java source
+ */
+export function extractPackage(content) {
+  const match = content.match(/package\s+([\w.]+);/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Extract class name from Java source
+ */
+export function extractClassName(content) {
+  const match = content.match(/(?:public\s+)?(?:abstract\s+)?(?:final\s+)?class\s+(\w+)/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Extract imports from Java source
+ */
+export function extractImports(content) {
+  const matches = content.matchAll(/import\s+(?:static\s+)?([\w.]+);/g);
+  return Array.from(matches).map(m => m[1]);
+}
+
+/**
+ * Extract annotations from Java source
+ */
+export function extractAnnotations(content) {
+  const annotations = [];
+  const lines = content.split("\n");
+
+  lines.forEach((line, idx) => {
+    const matches = line.matchAll(/@(\w+)/g);
+    for (const match of matches) {
+      annotations.push({
+        name: match[1],
+        line: idx + 1
+      });
+    }
+  });
+
+  return annotations;
+}
+
+/**
+ * Extract Spring component types from Java source
+ */
+export function extractSpringComponents(content) {
+  const components = [];
+
+  if (content.includes("@RestController")) components.push("RestController");
+  if (content.includes("@Controller")) components.push("Controller");
+  if (content.includes("@Service")) components.push("Service");
+  if (content.includes("@Repository")) components.push("Repository");
+  if (content.includes("@Component")) components.push("Component");
+  if (content.includes("@Configuration")) components.push("Configuration");
+
+  return components;
+}
+
+/**
+ * Extract dependencies (injected fields) from Java source
+ */
+export function extractDependencies(content) {
+  const deps = [];
+  const lines = content.split("\n");
+
+  lines.forEach((line, idx) => {
+    if (line.includes("@Autowired") || line.includes("@Resource") || line.includes("@Inject")) {
+      for (let i = 1; i <= 3; i++) {
+        if (lines[idx + i]) {
+          const fieldMatch = lines[idx + i].match(/(?:private|protected|public)\s+(?:[\w<>[\],\s]*)\s+(\w+)/);
+          if (fieldMatch) {
+            deps.push({
+              name: fieldMatch[1],
+              line: idx + i + 1
+            });
+            break;
+          }
+        }
+      }
+    }
+  });
+
+  return deps;
+}
+
+/**
+ * Calculate cyclomatic complexity for a method
  */
 export function calculateComplexity(methodCode) {
   let complexity = 1; // Base complexity
@@ -119,7 +130,7 @@ export function calculateComplexity(methodCode) {
     /\bwhile\b/g,
     /\bcase\b/g,
     /\bcatch\b/g,
-    /\?\?/g,  // ternary
+    /\?\?/g,
     /&&/g,
     /\|\|/g
   ];
@@ -133,34 +144,73 @@ export function calculateComplexity(methodCode) {
 }
 
 /**
- * Find all Java files in a directory
+ * Analyze Java file and return comprehensive info
  */
-export function findJavaFiles(targetPath) {
-  const javaFiles = [];
+export function analyzeJavaFile(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
 
-  function scan(dir) {
-    if (!fs.existsSync(dir)) return;
+  const content = fs.readFileSync(filePath, "utf-8");
 
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
+  const classInfo = parseClassInfo(content);
 
-      if (entry.isDirectory()) {
-        if (!['node_modules', '.git', 'target', 'build', '.idea', '.mvn', 'gradle'].includes(entry.name)) {
-          scan(fullPath);
-        }
-      } else if (entry.name.endsWith('.java')) {
-        javaFiles.push(fullPath);
-      }
+  if (!classInfo.className) {
+    return null;
+  }
+
+  // Add Spring-specific analysis
+  classInfo.springComponents = extractSpringComponents(content);
+  classInfo.dependencies = extractDependencies(content);
+
+  // Add source code reference for snippet extraction
+  classInfo.sourceCode = content;
+
+  return classInfo;
+}
+
+/**
+ * Build call chain analysis for entry points
+ */
+export function buildCallChain(javaFiles, pmdResults = []) {
+  const fileAnalysis = new Map();
+
+  let analyzedCount = 0;
+  for (const file of javaFiles) {
+    const info = analyzeJavaFile(file);
+    if (info) {
+      const key = info.package ? `${info.package}.${info.className}` : info.className;
+      fileAnalysis.set(key, info);
+      analyzedCount++;
     }
   }
 
-  if (fs.existsSync(targetPath) && fs.statSync(targetPath).isFile()) {
-    return [targetPath];
+  // Find entry points
+  const entryPoints = [];
+  for (const [key, info] of fileAnalysis) {
+    const hasRestMapping = info.annotations.some(a =>
+      ["GetMapping", "PostMapping", "RequestMapping", "PatchMapping", "PutMapping", "DeleteMapping"].includes(a)
+    );
+    const isService = info.springComponents.includes("Service");
+    const isComponent = info.springComponents.includes("Component");
+    const hasTransactional = info.annotations.some(a => a === "Transactional");
+    const hasAsync = info.annotations.some(a => a === "Async");
+    const hasScheduled = info.annotations.some(a => a === "Scheduled");
+    const hasJobHandler = info.annotations.some(a => a === "JobHandler");
+
+    if (hasRestMapping ||
+        (isService && (hasTransactional || hasAsync)) ||
+        hasScheduled ||
+        hasJobHandler ||
+        (isComponent && hasAsync)) {
+      entryPoints.push(info);
+    }
   }
 
-  scan(targetPath);
-  return javaFiles;
+  return {
+    entryPoints: entryPoints.slice(0, 5),
+    fileAnalysis: Object.fromEntries(fileAnalysis),
+    totalFiles: javaFiles.length
+  };
 }
 
-import path from "path";
