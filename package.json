@@ -3,10 +3,17 @@
   "version": "1.0.0",
   "description": "A collection of MCP skills for Java Architects (Spring Reviewer, DB Architect, etc.)",
   "bin": {
-    "java-architect-skills": "./index.js"
+    "java-architect-skills": "./src/server.js"
   },
   "scripts": {
-    "start": "node index.js"
+    "start": "node src/server.js",
+    "install-mcp": "node scripts/install.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "dotenv": "^16.3.1",
+    "adm-zip": "^0.5.10",
+    "node-fetch": "^3.3.2"
   },
   "keywords": [
     "mcp",
@@ -19,6 +26,6 @@
   "author": "zmlio",
   "license": "MIT",
   "engines": {
-    "node": ">=14"
+    "node": ">=18"
   }
 }
