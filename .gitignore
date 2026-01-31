@@ -27,3 +27,7 @@ pmd-results.json
 *.log
 review_report.md
 temp/
+
+# Node
+node_modules/
+package-lock.json

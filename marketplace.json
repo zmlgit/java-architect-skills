@@ -10,7 +10,7 @@
     {
       "name": "java-architect-skills",
       "description": "Spring Boot code auditor with PMD static analysis and LLM semantic analysis",
-      "source": "./",
+      "source": "./plugins/java-architect-skills",
       "category": "development"
     }
   ]
