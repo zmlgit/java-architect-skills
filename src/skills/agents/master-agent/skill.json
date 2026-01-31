@@ -1,0 +1,64 @@
+{
+  "name": "master-agent",
+  "version": "1.0.0",
+  "displayName": "Master Agent",
+  "description": "Distributed analysis orchestrator for large Java projects with checkpoint support",
+  "category": "agents",
+  "author": "zmlio",
+  "tags": ["master-agent", "distributed", "scalable", "checkpoint"],
+  "tools": [
+    {
+      "name": "analyze",
+      "description": "Start distributed analysis with chunking and checkpoint support",
+      "script": "scripts/analyze.js",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target_path": {
+            "type": "string",
+            "description": "Absolute path to Java project"
+          },
+          "chunk_size": {
+            "type": "number",
+            "description": "Files per chunk (default: 50)",
+            "default": 50
+          },
+          "parallel": {
+            "type": "boolean",
+            "description": "Enable parallel processing",
+            "default": true
+          }
+        },
+        "required": ["target_path"]
+      }
+    },
+    {
+      "name": "resume",
+      "description": "Resume interrupted analysis from checkpoint",
+      "script": "scripts/resume.js",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target_path": {
+            "type": "string",
+            "description": "Absolute path to Java project"
+          }
+        },
+        "required": ["target_path"]
+      }
+    },
+    {
+      "name": "status",
+      "description": "Show analysis status and progress",
+      "script": "scripts/status.js",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    }
+  ],
+  "requirements": {
+    "runtime": "node"
+  }
+}
