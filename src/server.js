@@ -150,7 +150,13 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
 });
 
 server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-  const name = request.params.name;
+  let name = request.params.name;
+
+  // Strip server prefix if present (e.g., "java-architect-skills:spring-reviewer-review")
+  if (name.includes(":")) {
+    name = name.split(":").pop();
+  }
+
   if (!name || !name.endsWith("-review")) {
     throw new Error("Invalid prompt name");
   }
