@@ -1,0 +1,24 @@
+{
+  "name": "java-architect-skills",
+  "version": "1.0.0",
+  "description": "A collection of MCP skills for Java Architects (Spring Reviewer, DB Architect, etc.)",
+  "bin": {
+    "java-architect-skills": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "spring",
+    "java",
+    "code-review",
+    "agent"
+  ],
+  "author": "zmlio",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14"
+  }
+}
