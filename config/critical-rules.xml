@@ -1,0 +1,346 @@
+<?xml version="1.0"?>
+<ruleset name="Spring Reviewer Critical Rules"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+    <description>
+        Curated PMD rules for Spring Reviewer focusing on critical bugs,
+        potential NPE issues, array bounds violations, and thread-safety problems.
+
+        This ruleset is optimized for high-severity issues that can cause
+        production failures in Spring Boot applications.
+    </description>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- CATEGORY 1: Error Prone Rules (Critical Bug Detection)              -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule ref="category/java/errorprone.xml/NullAssignment">
+        <priority>1</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/AvoidCatchingNPE">
+        <priority>1</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/NullAssignmentInOperator">
+        <priority>1</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/ReturnFromFinallyBlock">
+        <priority>1</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/UnconditionalIfStatement">
+        <priority>1</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/OverrideBothEqualsAndHashcode">
+        <priority>1</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/CompareObjectsWithEquals">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/AvoidMultipleUnaryOperators">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/BrokenNullCheck">
+        <priority>1</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/CheckSkipResult">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/ClassCastExceptionWithToArray">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/DontUseFloatTypeForLoopIndices">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/EmptyCatchBlock">
+        <priority>2</priority>
+        <properties>
+            <property name="allowCommentedBlocks" value="true"/>
+        </properties>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/EmptyIfStmt">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/EmptyWhileStmt">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/JumbledIncrementer">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/MisplacedNullCheck">
+        <priority>1</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/AvoidDecimalLiteralsInBigDecimalConstructor">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/AvoidEnumAsIdentifier">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/AvoidInstanceofChecksInCatchClause">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/BadComparison">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/ConstructorCallsOverridableMethod">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/DoNotTerminateVM">
+        <priority>1</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/IdempotentOperations">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/ProperCloneImplementation">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/UseEqualsToCompareStrings">
+        <priority>2</priority>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- CATEGORY 2: Best Practices (Array & Collection Safety)              -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule ref="category/java/bestpractices.xml/ArrayIsStoredDirectly">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/bestpractices.xml/MethodReturnsInternalArray">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/bestpractices.xml/AvoidReassigningParameters">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/bestpractices.xml/CheckResultSet">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/bestpractices.xml/UseCollectionIsEmpty">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/bestpractices.xml/AvoidUsingHardCodedIP">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/bestpractices.xml/DefaultLabelNotLastInSwitchStmt">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/bestpractices.xml/ForLoopCanBeForeach">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/bestpractices.xml/LooseCoupling">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/bestpractices.xml/PreserveStackTrace">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/bestpractices.xml/UnusedAssignment">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/bestpractices.xml/UseVarargs">
+        <priority>3</priority>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- CATEGORY 3: Multithreading (Concurrency & Thread Safety)            -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule ref="category/java/multithreading.xml/NonThreadSafeSingleton">
+        <priority>1</priority>
+    </rule>
+
+    <rule ref="category/java/multithreading.xml/UnsynchronizedStaticFormatter">
+        <priority>1</priority>
+    </rule>
+
+    <rule ref="category/java/multithreading.xml/AvoidThreadGroup">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/multithreading.xml/DontCallThreadRun">
+        <priority>1</priority>
+    </rule>
+
+    <rule ref="category/java/multithreading.xml/DoubleCheckedLocking">
+        <priority>1</priority>
+    </rule>
+
+    <rule ref="category/java/multithreading.xml/UseNotifyAllInsteadOfNotify">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/multithreading.xml/AvoidSynchronizedAtMethodLevel">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/multithreading.xml/UseConcurrentHashMap">
+        <priority>2</priority>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- CATEGORY 4: Design (Immutability & Defensive Coding)                -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule ref="category/java/design.xml/ImmutableField">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/design.xml/SimplifyBooleanReturns">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/design.xml/SimplifyBooleanExpressions">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/design.xml/FinalFieldCouldBeStatic">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/design.xml/ClassWithOnlyPrivateConstructorsShouldBeFinal">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/design.xml/LogicInversion">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/design.xml/UseUtilityClass">
+        <priority>3</priority>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- CATEGORY 5: Performance (Resource Management)                       -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule ref="category/java/performance.xml/AvoidInstantiatingObjectsInLoops">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/performance.xml/UseStringBufferForStringAppends">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/performance.xml/StringInstantiation">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/performance.xml/InefficientEmptyStringCheck">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/performance.xml/InsufficientStringBufferDeclaration">
+        <priority>3</priority>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- CATEGORY 6: Security (Input Validation & Injection Prevention)      -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule ref="category/java/security.xml/HardCodedCryptoKey">
+        <priority>1</priority>
+    </rule>
+
+    <rule ref="category/java/security.xml/InsecureCryptoIv">
+        <priority>2</priority>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- CATEGORY 7: Database & ORM (Best Practices for JPA/MyBatis)         -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule ref="category/java/bestpractices.xml/AvoidReassigningLoopVariables">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/CloseResource">
+        <priority>1</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/AvoidBranchingStatementAsLastInLoop">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/EmptyFinallyBlock">
+        <priority>2</priority>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/EmptyStatementNotInLoop">
+        <priority>2</priority>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- CATEGORY 8: Resource Management & Performance                        -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule ref="category/java/bestpractices.xml/UnusedFormalParameter">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/bestpractices.xml/UnusedLocalVariable">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/bestpractices.xml/UnusedPrivateField">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/bestpractices.xml/UnusedPrivateMethod">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/performance.xml/OptimizableToArrayCall">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/performance.xml/AddEmptyString">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/performance.xml/AvoidArrayLoops">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/performance.xml/BigIntegerInstantiation">
+        <priority>3</priority>
+    </rule>
+
+    <rule ref="category/java/performance.xml/BooleanInstantiation">
+        <priority>2</priority>
+    </rule>
+
+</ruleset>

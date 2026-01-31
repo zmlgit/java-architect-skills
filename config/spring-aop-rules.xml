@@ -1,0 +1,1120 @@
+<?xml version="1.0"?>
+<ruleset name="Spring AOP Custom Rules"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+    <description>
+        Custom XPath-based rules for detecting Spring AOP proxy failures and anti-patterns.
+
+        These rules complement static PMD analysis with Spring-specific semantic checks:
+        - Self-invocation detection (@Transactional, @Async, @Cacheable)
+        - Access modifier violations (private/final methods with AOP annotations)
+        - Constructor lifecycle issues (AOP calls before proxy initialization)
+        - Spring best practices (field injection, hardcoded config)
+
+        Note: Some complex patterns require LLM semantic analysis beyond XPath capabilities.
+    </description>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Spring AOP: Access Modifier Violations                              -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule name="AvoidTransactionalOnPrivateMethod"
+          language="java"
+          message="@Transactional on private method will be ignored by Spring AOP"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            Spring AOP uses CGLIB proxies which cannot intercept private methods.
+            @Transactional annotations on private methods are silently ignored.
+
+            Solution: Make the method public or protected.
+        </description>
+        <priority>1</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodDeclaration[@Private='true']
+  //Annotation//Name[@Image='Transactional']
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ❌ BAD - @Transactional will be ignored
+@Service
+public class UserService {
+    @Transactional
+    private void updateUser() { ... }
+}
+
+// ✅ GOOD
+@Service
+public class UserService {
+    @Transactional
+    public void updateUser() { ... }
+}
+]]>
+        </example>
+    </rule>
+
+    <rule name="AvoidAsyncOnPrivateMethod"
+          language="java"
+          message="@Async on private method will be ignored by Spring AOP"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            Spring AOP cannot proxy private methods. @Async on private methods is ignored.
+        </description>
+        <priority>1</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodDeclaration[@Private='true']
+  //Annotation//Name[@Image='Async']
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ❌ BAD
+@Service
+public class EmailService {
+    @Async
+    private void sendEmail() { ... }
+}
+
+// ✅ GOOD
+@Service
+public class EmailService {
+    @Async
+    public void sendEmail() { ... }
+}
+]]>
+        </example>
+    </rule>
+
+    <rule name="AvoidCacheableOnPrivateMethod"
+          language="java"
+          message="@Cacheable on private method will be ignored by Spring AOP"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            Spring AOP cannot proxy private methods. @Cacheable on private methods is ignored.
+        </description>
+        <priority>1</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodDeclaration[@Private='true']
+  //Annotation//Name[@Image='Cacheable' or @Image='CachePut' or @Image='CacheEvict']
+]]>
+                </value>
+            </property>
+        </properties>
+    </rule>
+
+    <rule name="AvoidTransactionalOnFinalMethod"
+          language="java"
+          message="@Transactional on final method cannot be proxied by CGLIB"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            CGLIB proxies work by subclassing. Final methods cannot be overridden,
+            so @Transactional will not work.
+        </description>
+        <priority>1</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodDeclaration[@Final='true']
+  //Annotation//Name[@Image='Transactional']
+]]>
+                </value>
+            </property>
+        </properties>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Spring Best Practices: Dependency Injection                         -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule name="AvoidFieldInjection"
+          language="java"
+          message="Use constructor injection instead of field injection"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            Field injection (@Autowired on fields) makes classes harder to test,
+            hides dependencies, and prevents immutability.
+
+            Constructor injection is preferred as it makes dependencies explicit,
+            enables final fields, and improves testability.
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//FieldDeclaration
+  //Annotation//Name[@Image='Autowired' or @Image='Inject' or @Image='Resource']
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ❌ BAD - field injection
+@Service
+public class OrderService {
+    @Autowired
+    private PaymentService paymentService;
+}
+
+// ✅ GOOD - constructor injection
+@Service
+public class OrderService {
+    private final PaymentService paymentService;
+
+    public OrderService(PaymentService paymentService) {
+        this.paymentService = paymentService;
+    }
+}
+]]>
+        </example>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Spring Best Practices: Configuration Management                     -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule name="AvoidHardcodedConfigValues"
+          language="java"
+          message="Extract configuration to @ConfigurationProperties or @Value"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            Hardcoded configuration values (URLs, ports, credentials, timeouts) should be
+            externalized to application.properties/yml using @ConfigurationProperties or @Value.
+
+            This enables environment-specific configuration without code changes.
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//FieldDeclaration[@Final='true'][@Static='true']
+  [
+    .//Literal[
+      contains(@Image, 'http://') or
+      contains(@Image, 'https://') or
+      contains(@Image, 'jdbc:') or
+      contains(@Image, 'smtp')
+    ]
+  ]
+  [not(ancestor::ClassOrInterfaceDeclaration//Annotation//Name[@Image='ConfigurationProperties'])]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ❌ BAD - hardcoded config
+@Service
+public class ApiClient {
+    private static final String API_URL = "https://api.example.com";
+    private static final int TIMEOUT = 5000;
+}
+
+// ✅ GOOD - externalized config
+@ConfigurationProperties(prefix = "app.api")
+@Component
+public class ApiConfig {
+    private String url;
+    private int timeout;
+    // getters/setters
+}
+
+# application.yml
+app:
+  api:
+    url: https://api.example.com
+    timeout: 5000
+]]>
+        </example>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Spring Security: Common Vulnerabilities                             -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule name="AvoidPermitAllWithoutRateLimiting"
+          language="java"
+          message="Public endpoints should have rate limiting to prevent abuse"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            Endpoints with permitAll() are publicly accessible and vulnerable to abuse.
+            Consider adding rate limiting or CAPTCHA for sensitive operations.
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodDeclaration//PrimaryExpression
+  [.//PrimaryPrefix//Name[ends-with(@Image, 'permitAll')]]
+]]>
+                </value>
+            </property>
+        </properties>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Spring Data: Common Issues                                          -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule name="AvoidFindAllWithoutPagination"
+          language="java"
+          message="Use Pageable parameter to prevent loading entire table into memory"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            Calling findAll() without pagination can cause OutOfMemoryError on large tables.
+            Use Page&lt;T&gt; findAll(Pageable) instead.
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodDeclaration[@Name='findAll']
+  [not(.//FormalParameter//Type//ClassOrInterfaceType[@Image='Pageable'])]
+  [ancestor::ClassOrInterfaceDeclaration//ExtendsList//ClassOrInterfaceType[
+    contains(@Image, 'Repository') or
+    contains(@Image, 'JpaRepository') or
+    contains(@Image, 'CrudRepository')
+  ]]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ❌ BAD - loads entire table
+@Repository
+public interface UserRepository extends JpaRepository<User, Long> {
+    List<User> findAll(); // Can cause OOM!
+}
+
+// ✅ GOOD - paginated
+@Repository
+public interface UserRepository extends JpaRepository<User, Long> {
+    Page<User> findAll(Pageable pageable);
+}
+
+// Usage
+Page<User> users = userRepository.findAll(PageRequest.of(0, 20));
+]]>
+        </example>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Message Queue Patterns (Kafka/RabbitMQ/RocketMQ)                   -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule name="KafkaListenerWithoutErrorHandler"
+          language="java"
+          message="@KafkaListener should have error handling to prevent message loss"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            Kafka listeners without explicit error handling may cause message loss
+            or infinite retry loops. Always implement proper error handling strategy.
+
+            Best practices:
+            - Use try-catch with logging
+            - Configure error handler in KafkaListenerContainerFactory
+            - Implement dead letter queue (DLQ) for failed messages
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodDeclaration[
+  .//Annotation//Name[@Image='KafkaListener']
+]
+[not(descendant::BlockStatement//CatchStatement)]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ❌ BAD - No error handling
+@KafkaListener(topics = "orders")
+public void processOrder(Order order) {
+    orderService.createOrder(order); // Exception = message lost!
+}
+
+// ✅ GOOD - With error handling
+@KafkaListener(topics = "orders")
+public void processOrder(Order order) {
+    try {
+        orderService.createOrder(order);
+    } catch (Exception e) {
+        log.error("Failed to process order: {}", order.getId(), e);
+        dlqProducer.send("orders-dlq", order);
+    }
+}
+]]>
+        </example>
+    </rule>
+
+    <rule name="RabbitListenerWithoutAckMode"
+          language="java"
+          message="@RabbitListener should explicitly configure acknowledgment mode"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            RabbitMQ listeners should explicitly specify acknowledge mode to prevent
+            message loss or duplicate processing.
+
+            Recommended: Use AcknowledgeMode.MANUAL for critical business logic.
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodDeclaration//Annotation[
+  .//Name[@Image='RabbitListener']
+]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ⚠️ WARNING - Using default auto-ack
+@RabbitListener(queues = "payment")
+public void processPayment(Payment payment) {
+    paymentService.process(payment);
+}
+
+// ✅ GOOD - Manual acknowledgment
+@RabbitListener(queues = "payment", ackMode = "MANUAL")
+public void processPayment(Payment payment, Channel channel, 
+                          @Header(AmqpHeaders.DELIVERY_TAG) long tag) {
+    try {
+        paymentService.process(payment);
+        channel.basicAck(tag, false);
+    } catch (Exception e) {
+        channel.basicNack(tag, false, true); // Requeue
+    }
+}
+]]>
+        </example>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Caching Strategies (Redis/Caffeine/JetCache)                        -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule name="CacheableWithoutKeySpecification"
+          language="java"
+          message="@Cacheable should explicitly specify 'key' to avoid unintended cache collisions"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            Without explicit key specification, Spring uses all method parameters as cache key.
+            This can lead to:
+            - Inefficient cache utilization
+            - Unexpected cache hits/misses
+            - Key collision issues
+
+            Always specify explicit cache keys using SpEL expressions.
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodDeclaration//Annotation[
+  .//Name[@Image='Cacheable']
+  and not(.//MemberValuePair[@Image='key'])
+]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ⚠️ WARNING - Implicit key generation
+@Cacheable("users")
+public User getUser(Long id, String source) {
+    // Cache key = both id AND source, may not be intended
+}
+
+// ✅ GOOD - Explicit key
+@Cacheable(value = "users", key = "#id")
+public User getUser(Long id, String source) {
+    return userRepo.findById(id).orElse(null);
+}
+]]>
+        </example>
+    </rule>
+
+    <rule name="CacheEvictWithoutAllEntries"
+          language="java"
+          message="@CacheEvict should specify 'allEntries=true' for write operations affecting multiple cache entries"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            When modifying data that affects multiple cache entries (e.g., bulk updates),
+            use allEntries=true to prevent stale data.
+
+            Example: Updating a user's status should invalidate all user-related caches.
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodDeclaration[
+  @Name='deleteAll' or 
+  @Name='updateAll' or 
+  @Name='batchUpdate' or
+  @Name='bulkUpdate'
+]
+//Annotation[
+  .//Name[@Image='CacheEvict']
+  and not(.//MemberValuePair[@Image='allEntries'])
+]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ❌ BAD - Partial cache invalidation on bulk operation
+@CacheEvict(value = "users", key = "#id")
+public void deleteAllUsers() {
+    userRepo.deleteAll(); // Only evicts one cache entry!
+}
+
+// ✅ GOOD - Clear entire cache
+@CacheEvict(value = "users", allEntries = true)
+public void deleteAllUsers() {
+    userRepo.deleteAll();
+}
+]]>
+        </example>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Advanced Concurrency & Async Patterns                               -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule name="AsyncMethodReturnsVoid"
+          language="java"
+          message="@Async methods returning void cannot propagate exceptions - use Future/CompletableFuture"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            @Async methods with void return type swallow exceptions silently.
+            Exceptions are logged but not propagated to callers.
+
+            Solutions:
+            - Return CompletableFuture to allow exception handling
+            - Configure AsyncUncaughtExceptionHandler
+            - Use proper exception logging
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodDeclaration[
+  .//Annotation//Name[@Image='Async']
+  and ResultType[@Void='true']
+]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ⚠️ WARNING - Exceptions swallowed
+@Async
+public void sendEmail(String to, String subject) {
+    emailService.send(to, subject); // If this throws, caller never knows!
+}
+
+// ✅ GOOD - Exception can be handled
+@Async
+public CompletableFuture<Void> sendEmail(String to, String subject) {
+    try {
+        emailService.send(to, subject);
+        return CompletableFuture.completedFuture(null);
+    } catch (Exception e) {
+        return CompletableFuture.failedFuture(e);
+    }
+}
+
+// Usage
+sendEmail(to, subject)
+    .exceptionally(ex -> {
+        log.error("Email failed", ex);
+        return null;
+    });
+]]>
+        </example>
+    </rule>
+
+    <rule name="ScheduledWithoutFixedDelayOrCron"
+          language="java"
+          message="@Scheduled should use fixedDelay (not fixedRate) or cron to prevent job overlap"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            fixedRate schedules next execution regardless of previous job completion,
+            potentially causing:
+            - Multiple concurrent executions
+            - Resource exhaustion
+            - Data corruption
+
+            Use fixedDelay to wait for completion, or add manual synchronization.
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodDeclaration//Annotation[
+  .//Name[@Image='Scheduled']
+  and .//MemberValuePair[@Image='fixedRate']
+]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ⚠️ RISK - Can run concurrently if job > 60s
+@Scheduled(fixedRate = 60000)
+public void longRunningJob() {
+    processLargeDataset(); // May take > 60s
+}
+
+// ✅ GOOD - Waits for completion
+@Scheduled(fixedDelay = 60000)
+public void longRunningJob() {
+    processLargeDataset();
+}
+
+// ✅ ALTERNATIVE - Add synchronization
+@Scheduled(fixedRate = 60000)
+public void longRunningJob() {
+    if (!jobLock.tryLock()) {
+        log.warn("Previous job still running, skipping");
+        return;
+    }
+    try {
+        processLargeDataset();
+    } finally {
+        jobLock.unlock();
+    }
+}
+]]>
+        </example>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Spring Cloud & Distributed Patterns                                 -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule name="FeignClientWithoutFallback"
+          language="java"
+          message="@FeignClient should specify fallback or fallbackFactory for resilience"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            Feign clients without fallback mechanisms fail immediately when remote
+            service is unavailable, causing cascading failures.
+
+            Always implement fallback logic for graceful degradation.
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//ClassOrInterfaceDeclaration//Annotation[
+  .//Name[@Image='FeignClient']
+  and not(.//MemberValuePair[@Image='fallback' or @Image='fallbackFactory'])
+]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ⚠️ WARNING - No fallback, direct failure
+@FeignClient(name = "user-service")
+public interface UserClient {
+    @GetMapping("/users/{id}")
+    User getUser(@PathVariable Long id);
+}
+
+// ✅ GOOD - With fallback
+@FeignClient(name = "user-service", fallback = UserClientFallback.class)
+public interface UserClient {
+    @GetMapping("/users/{id}")
+    User getUser(@PathVariable Long id);
+}
+
+@Component
+class UserClientFallback implements UserClient {
+    @Override
+    public User getUser(Long id) {
+        return User.builder()
+            .id(id)
+            .name("Unknown (Service Unavailable)")
+            .build();
+    }
+}
+]]>
+        </example>
+    </rule>
+
+    <rule name="RestTemplateWithoutTimeout"
+          language="java"
+          message="RestTemplate should configure connection and read timeouts"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            RestTemplate without timeouts can cause thread starvation when remote
+            services hang or respond slowly.
+
+            Always configure:
+            - Connection timeout (time to establish connection)
+            - Read timeout (time to read response)
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//VariableDeclarator[
+  ../Type//ClassOrInterfaceType[@Image='RestTemplate']
+]
+//AllocationExpression[
+  ClassOrInterfaceType[@Image='RestTemplate']
+  and not(Arguments/ArgumentList)
+]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ⚠️ WARNING - No timeout configuration
+@Bean
+public RestTemplate restTemplate() {
+    return new RestTemplate(); // Infinite wait possible!
+}
+
+// ✅ GOOD - With timeouts
+@Bean
+public RestTemplate restTemplate() {
+    HttpComponentsClientHttpRequestFactory factory = 
+        new HttpComponentsClientHttpRequestFactory();
+    factory.setConnectTimeout(5000);  // 5s connection timeout
+    factory.setReadTimeout(10000);    // 10s read timeout
+    return new RestTemplate(factory);
+}
+]]>
+        </example>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Bean Lifecycle & Dependency Management                              -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule name="PrototypeBeanInjectedIntoSingleton"
+          language="java"
+          message="Prototype-scoped bean injected into singleton may not behave as expected"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            When a prototype bean is injected into a singleton bean via @Autowired,
+            only ONE instance is created and reused, defeating the purpose of prototype scope.
+
+            Solutions:
+            - Use ObjectFactory or Provider for lazy retrieval
+            - Use @Lookup method injection
+            - Use ApplicationContext.getBean() for each access
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//ClassOrInterfaceDeclaration[
+  .//Annotation//Name[@Image='Component' or @Image='Service' or @Image='Configuration']
+  and not(.//Annotation//Name[@Image='Scope'])
+]
+//FieldDeclaration[
+  .//Annotation//Name[@Image='Autowired' or @Image='Inject']
+]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ⚠️ WARNING - Prototype bean becomes singleton when injected
+@Component
+@Scope("prototype")
+class PrototypeBean { /* stateful */ }
+
+@Service  // Singleton by default
+public class MyService {
+    @Autowired
+    private PrototypeBean prototypeBean; // Only ONE instance created!
+}
+
+// ✅ GOOD - Use Provider for lazy retrieval
+@Service
+public class MyService {
+    @Autowired
+    private ObjectProvider<PrototypeBean> prototypeBeanProvider;
+    
+    public void doWork() {
+        PrototypeBean bean = prototypeBeanProvider.getObject(); // New instance!
+        bean.process();
+    }
+}
+
+// ✅ ALTERNATIVE - Use @Lookup
+@Service
+public abstract class MyService {
+    @Lookup
+    protected abstract PrototypeBean getPrototypeBean();
+    
+    public void doWork() {
+        PrototypeBean bean = getPrototypeBean(); // New instance!
+        bean.process();
+    }
+}
+]]>
+        </example>
+    </rule>
+
+    <rule name="PostConstructDependsOnAutowiredField"
+          language="java"
+          message="@PostConstruct method may access uninitialized @Autowired fields"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            Field injection order is not guaranteed. @PostConstruct methods should not
+            rely on specific @Autowired field initialization order.
+
+            Use constructor injection for guaranteed initialization order.
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//ClassOrInterfaceDeclaration[
+  .//FieldDeclaration//Annotation//Name[@Image='Autowired']
+  and .//MethodDeclaration//Annotation//Name[@Image='PostConstruct']
+]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ⚠️ RISK - Field injection order not guaranteed
+@Service
+public class UserService {
+    @Autowired
+    private EmailService emailService;
+    
+    @Autowired
+    private SmsService smsService;
+    
+    @PostConstruct
+    public void init() {
+        // Which service is initialized first? Not guaranteed!
+        emailService.configure();
+        smsService.configure();
+    }
+}
+
+// ✅ GOOD - Constructor injection guarantees order
+@Service
+public class UserService {
+    private final EmailService emailService;
+    private final SmsService smsService;
+    
+    public UserService(EmailService emailService, SmsService smsService) {
+        this.emailService = emailService;
+        this.smsService = smsService;
+    }
+    
+    @PostConstruct
+    public void init() {
+        // Both services guaranteed to be initialized
+        emailService.configure();
+        smsService.configure();
+    }
+}
+]]>
+        </example>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Advanced Transaction Configuration                                   -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule name="TransactionalWithoutIsolationLevel"
+          language="java"
+          message="@Transactional should specify isolation level for critical operations"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            Default isolation level (database default) may cause:
+            - Dirty reads
+            - Non-repeatable reads
+            - Phantom reads
+
+            For critical business operations (financial, inventory), explicitly specify:
+            - READ_COMMITTED (most common)
+            - REPEATABLE_READ (prevent dirty/non-repeatable reads)
+            - SERIALIZABLE (full isolation, performance impact)
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodDeclaration[
+  @Name='transfer' or 
+  @Name='payment' or 
+  @Name='deduct' or
+  @Name='deposit' or
+  contains(@Name, 'Financial') or
+  contains(@Name, 'Money')
+]
+//Annotation[
+  .//Name[@Image='Transactional']
+  and not(.//MemberValuePair[@Image='isolation'])
+]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ⚠️ WARNING - Using database default isolation
+@Transactional
+public void transferMoney(Long from, Long to, BigDecimal amount) {
+    // May have isolation issues in high concurrency!
+}
+
+// ✅ GOOD - Explicit isolation level
+@Transactional(isolation = Isolation.READ_COMMITTED)
+public void transferMoney(Long from, Long to, BigDecimal amount) {
+    Account fromAccount = accountRepo.findById(from).orElseThrow();
+    Account toAccount = accountRepo.findById(to).orElseThrow();
+    
+    fromAccount.deduct(amount);
+    toAccount.deposit(amount);
+    
+    accountRepo.save(fromAccount);
+    accountRepo.save(toAccount);
+}
+]]>
+        </example>
+    </rule>
+
+    <rule name="TransactionalWithoutTimeout"
+          language="java"
+          message="Long-running @Transactional methods should specify timeout"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            Transactions without timeout can:
+            - Hold database locks indefinitely
+            - Cause connection pool exhaustion
+            - Impact system stability
+
+            Set reasonable timeout for long operations:
+            - Batch processing: 300-600 seconds
+            - Complex business logic: 30-60 seconds
+            - Simple CRUD: 5-10 seconds (default is often sufficient)
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodDeclaration[
+  @Name='batch' or 
+  @Name='import' or 
+  @Name='export' or
+  @Name='process' or
+  contains(@Name, 'Batch') or
+  contains(@Name, 'Import')
+]
+//Annotation[
+  .//Name[@Image='Transactional']
+  and not(.//MemberValuePair[@Image='timeout'])
+]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ⚠️ RISK - No timeout on batch operation
+@Transactional
+public void batchProcessOrders(List<Order> orders) {
+    // May hold locks for hours if processing millions of orders!
+    orders.forEach(this::processOrder);
+}
+
+// ✅ GOOD - Explicit timeout
+@Transactional(timeout = 300) // 5 minutes
+public void batchProcessOrders(List<Order> orders) {
+    orders.forEach(this::processOrder);
+}
+
+// ✅ BETTER - Chunk processing with smaller transactions
+public void batchProcessOrders(List<Order> orders) {
+    Lists.partition(orders, 100).forEach(chunk -> {
+        processChunk(chunk);
+    });
+}
+
+@Transactional(timeout = 30)
+private void processChunk(List<Order> chunk) {
+    chunk.forEach(this::processOrder);
+}
+]]>
+        </example>
+    </rule>
+
+    <rule name="TransactionalWithoutRollbackFor"
+          language="java"
+          message="@Transactional should specify rollbackFor for checked exceptions"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            By default, @Transactional only rolls back on RuntimeException and Error.
+            Checked exceptions do NOT trigger rollback!
+
+            Always specify rollbackFor for business exceptions:
+            - Custom business exceptions (e.g., InsufficientBalanceException)
+            - Checked exceptions that should rollback
+        </description>
+        <priority>1</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodDeclaration[
+  .//Annotation//Name[@Image='Transactional']
+  and .//Name[@Image='throws']
+]
+//Annotation[
+  .//Name[@Image='Transactional']
+  and not(.//MemberValuePair[@Image='rollbackFor' or @Image='rollbackForClassName'])
+]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ❌ BAD - Checked exception won't rollback!
+@Transactional
+public void createOrder(Order order) throws OrderException {
+    orderRepo.save(order);
+    if (inventory.reserve(order.getItems()) < order.getQuantity()) {
+        throw new OrderException("Insufficient inventory");
+        // Transaction COMMITS anyway! Database inconsistent!
+    }
+}
+
+// ✅ GOOD - Explicit rollback
+@Transactional(rollbackFor = OrderException.class)
+public void createOrder(Order order) throws OrderException {
+    orderRepo.save(order);
+    if (!inventory.reserve(order.getItems())) {
+        throw new OrderException("Insufficient inventory");
+        // Transaction correctly ROLLS BACK
+    }
+}
+]]>
+        </example>
+    </rule>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Spring Events & Transaction Integration                             -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <rule name="EventListenerWithoutTransactionalPhase"
+          language="java"
+          message="@TransactionalEventListener should explicitly specify phase"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            TransactionalEventListener without phase specification defaults to AFTER_COMMIT.
+            This can cause issues:
+            - AFTER_COMMIT: Event lost if commit succeeds but listener fails
+            - BEFORE_COMMIT: Listener exception rolls back transaction
+            - AFTER_ROLLBACK: Only executed on rollback
+            - AFTER_COMPLETION: Always executed
+
+            Always specify phase based on business requirements.
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodDeclaration//Annotation[
+  .//Name[@Image='TransactionalEventListener']
+  and not(.//MemberValuePair[@Image='phase'])
+]
+]]>
+                </value>
+            </property>
+        </properties>
+        <example>
+<![CDATA[
+// ⚠️ IMPLICIT - Defaults to AFTER_COMMIT
+@TransactionalEventListener
+public void handleOrderCreated(OrderCreatedEvent event) {
+    sendEmail(event.getOrder());
+    // If email fails, order is already committed!
+}
+
+// ✅ EXPLICIT - Clear intent
+@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+public void handleOrderCreated(OrderCreatedEvent event) {
+    // Executed only after successful commit
+    // Consider compensation if this fails
+    try {
+        sendEmail(event.getOrder());
+    } catch (Exception e) {
+        // Log for manual retry or compensation
+        compensationService.scheduleEmailRetry(event.getOrder());
+    }
+}
+
+// ✅ ALTERNATIVE - Use BEFORE_COMMIT for critical operations
+@TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+public void validateInventory(OrderCreatedEvent event) {
+    // Executed before commit - can roll back transaction
+    if (!inventoryService.isAvailable(event.getOrder().getItems())) {
+        throw new InsufficientInventoryException();
+    }
+}
+]]>
+        </example>
+    </rule>
+
+</ruleset>

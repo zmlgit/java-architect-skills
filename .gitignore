@@ -1,0 +1,29 @@
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.iml
+.classpath
+.project
+.settings/
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Tool Output
+pmd-bin-*/
+pmd-results.json
+*.log
+review_report.md
+temp/
