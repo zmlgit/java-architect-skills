@@ -12,9 +12,16 @@ A collection of **Agentic Skills** designed to augment Java Architects. Built on
 
 ## 🚀 Installation
 
-### Claude Code (Plugin)
-If you are using Claude Code, you can install directly from the marketplace:
+### 1-Click Installation (Recommended for Local Use)
+Since you have the code locally, run the included script to configure Claude Desktop automatically:
 
+```bash
+# Run the installation script
+python3 scripts/install.py
+```
+
+### Claude Marketplace (Future)
+Once the skill is registered in the marketplace:
 ```bash
 /plugin install zmlgit/java-architect-skills
 ```
