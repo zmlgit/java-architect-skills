@@ -1,0 +1,49 @@
+{
+  "name": "java-architect",
+  "version": "1.0.0",
+  "displayName": "Java Architect",
+  "description": "Enterprise Java architecture review with design pattern analysis and best practices",
+  "category": "architects",
+  "author": "zmlio",
+  "tags": ["java", "architecture", "design-patterns", "enterprise", "clean-architecture"],
+  "tools": [
+    {
+      "name": "review",
+      "description": "Comprehensive architecture review of Java projects",
+      "script": "scripts/review.js",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target_path": {
+            "type": "string",
+            "description": "Absolute path to code"
+          },
+          "scope": {
+            "type": "string",
+            "description": "Review scope: full, layered, domain, or integration",
+            "default": "full"
+          }
+        },
+        "required": ["target_path"]
+      }
+    },
+    {
+      "name": "check-principles",
+      "description": "Check SOLID and design principle adherence",
+      "script": "scripts/check-principles.js",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target_path": {
+            "type": "string",
+            "description": "Absolute path to code"
+          }
+        },
+        "required": ["target_path"]
+      }
+    }
+  ],
+  "requirements": {
+    "runtime": "node"
+  }
+}

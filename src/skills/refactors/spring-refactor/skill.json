@@ -1,0 +1,48 @@
+{
+  "name": "spring-refactor",
+  "version": "1.0.0",
+  "displayName": "Spring Refactor",
+  "description": "Intelligent Spring Boot code refactoring with pattern detection and best practices",
+  "category": "refactors",
+  "author": "zmlio",
+  "tags": ["spring", "refactor", "clean-code", "design-patterns"],
+  "tools": [
+    {
+      "name": "analyze",
+      "description": "Analyze code for refactoring opportunities",
+      "script": "scripts/analyze.js",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target_path": {
+            "type": "string",
+            "description": "Absolute path to code"
+          }
+        },
+        "required": ["target_path"]
+      }
+    },
+    {
+      "name": "apply",
+      "description": "Apply refactoring patterns (interactive)",
+      "script": "scripts/apply.js",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target_path": {
+            "type": "string",
+            "description": "Absolute path to code"
+          },
+          "pattern": {
+            "type": "string",
+            "description": "Refactoring pattern to apply"
+          }
+        },
+        "required": ["target_path"]
+      }
+    }
+  ],
+  "requirements": {
+    "runtime": "node"
+  }
+}
