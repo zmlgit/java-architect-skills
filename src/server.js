@@ -151,17 +151,22 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
 
 server.setRequestHandler(GetPromptRequestSchema, async (request) => {
   let name = request.params.name;
+  error(`GetPromptRequest: ${name}`);
 
   // Strip server prefix if present (e.g., "java-architect-skills:spring-reviewer-review")
   if (name.includes(":")) {
     name = name.split(":").pop();
   }
+  error(`After strip prefix: ${name}`);
 
   if (!name || !name.endsWith("-review")) {
     throw new Error("Invalid prompt name");
   }
 
   const skillName = name.replace("-review", "");
+  error(`Looking for skill: ${skillName}`);
+  error(`Available skills: ${Array.from(registry.skills.keys()).join(", ")}`);
+
   const skill = registry.skills.get(skillName);
 
   if (!skill || !skill.promptFile) {
