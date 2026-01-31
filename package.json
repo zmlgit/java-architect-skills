@@ -1,13 +1,19 @@
 {
   "name": "java-architect-skills",
   "version": "1.0.0",
+  "type": "module",
   "description": "A collection of MCP skills for Java Architects (Spring Reviewer, DB Architect, etc.)",
   "bin": {
     "java-architect-skills": "./src/server.js"
   },
   "scripts": {
     "start": "node src/server.js",
-    "install-mcp": "node scripts/install.js"
+    "install": "node scripts/install.js",
+    "install:mcp": "node scripts/install.js",
+    "install:skip-npm": "node scripts/install.js --skip-npm",
+    "install:dry-run": "node scripts/install.js --dry-run",
+    "install:agent": "node scripts/install.js",
+    "postinstall": "node scripts/install.js --skip-npm --postinstall"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.6.0",

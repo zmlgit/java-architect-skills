@@ -11,7 +11,9 @@ import {
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { spawn } from "child_process";
+import { runNodeScript } from "./lib/process.js";
+import { loadSkillMeta, isValidTool, getToolScriptPath } from "./lib/skill-loader.js";
+import { log, error, success } from "./lib/logger.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,26 +26,100 @@ class SkillRegistry {
     this.discoverSkills();
   }
 
-  discoverSkills() {
-    if (!fs.existsSync(this.skillsDir)) return;
+  /**
+   * Recursively discover skills in subdirectories.
+   * @param {string} dir - Directory to scan
+   * @param {string} category - Category path (e.g., "analyzers/spring_reviewer")
+   */
+  discoverSkills(dir = this.skillsDir, category = "") {
+    if (!fs.existsSync(dir)) return;
 
-    const entries = fs.readdirSync(this.skillsDir, { withFileTypes: true });
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+
     for (const entry of entries) {
-      if (entry.isDirectory() && !entry.name.startsWith("_")) {
-        const skillPath = path.join(this.skillsDir, entry.name);
-        const promptFile = path.join(skillPath, "prompt.md");
-        
-        // Simple discovery: if prompt.md exists, it's a valid skill
-        if (fs.existsSync(promptFile)) {
-            this.skills.set(entry.name, {
-                path: skillPath,
-                promptFile: promptFile,
-                configDir: path.join(skillPath, "config")
-            });
-            console.error(`[MCP] Discovered skill: ${entry.name}`);
+      const entryPath = path.join(dir, entry.name);
+      const entryCategory = category ? `${category}/${entry.name}` : entry.name;
+
+      if (entry.isDirectory()) {
+        // Check if this directory has a skill.json (skill root)
+        const meta = loadSkillMeta(entryPath);
+
+        if (meta) {
+          // This is a skill directory
+          const skillName = entry.name;
+          const promptFile = path.join(entryPath, "prompt.md");
+
+          this.skills.set(skillName, {
+            meta,
+            path: entryPath,
+            promptFile: fs.existsSync(promptFile) ? promptFile : null,
+            configDir: path.join(entryPath, "config"),
+            category: entryCategory,
+          });
+          log(`Discovered skill: ${skillName} (${entryCategory})`);
+        } else {
+          // Recurse into subdirectory
+          this.discoverSkills(entryPath, entryCategory);
         }
       }
     }
+  }
+
+  /**
+   * Get all tool definitions from all skills.
+   * @returns {Array<{name: string, description: string, inputSchema: object, skillName: string}>}
+   */
+  getAllTools() {
+    const tools = [];
+
+    for (const [skillName, skill] of this.skills) {
+      if (skill.meta.tools && Array.isArray(skill.meta.tools)) {
+        for (const tool of skill.meta.tools) {
+          if (isValidTool(tool)) {
+            tools.push({
+              name: `${skillName}-${tool.name}`,
+              description: tool.description,
+              inputSchema: tool.inputSchema,
+              skillName,
+              toolName: tool.name,
+              script: tool.script,
+            });
+          }
+        }
+      }
+    }
+
+    return tools;
+  }
+
+  /**
+   * Get all prompt definitions from all skills.
+   * @returns {Array<{name: string, description: string}>}
+   */
+  getAllPrompts() {
+    const prompts = [];
+
+    for (const [skillName, skill] of this.skills) {
+      if (skill.promptFile) {
+        prompts.push({
+          name: `${skillName}-review`,
+          description: `Execute the ${skill.meta.displayName || skillName} Persona`,
+          skillName,
+        });
+      }
+    }
+
+    return prompts;
+  }
+
+  /**
+   * Get tool by its full name (e.g., "spring-reviewer-analyze").
+   * @param {string} toolFullName - Full tool name
+   * @returns {Object|null} Tool object or null
+   */
+  getTool(toolFullName) {
+    const tools = this.getAllTools();
+    return tools.find((t) => t.name === toolFullName) || null;
   }
 }
 
@@ -69,28 +145,21 @@ const server = new Server(
 // ------------------------------------------------------------------
 
 server.setRequestHandler(ListPromptsRequestSchema, async () => {
-  const prompts = [];
-  for (const [name, _] of registry.skills) {
-    prompts.push({
-      name: `${name}-review`,
-      description: `Execute the ${name} Persona`,
-      arguments: [],
-    });
-  }
+  const prompts = registry.getAllPrompts();
   return { prompts };
 });
 
 server.setRequestHandler(GetPromptRequestSchema, async (request) => {
   const name = request.params.name;
   if (!name || !name.endsWith("-review")) {
-      throw new Error("Invalid prompt name");
+    throw new Error("Invalid prompt name");
   }
 
   const skillName = name.replace("-review", "");
   const skill = registry.skills.get(skillName);
 
-  if (!skill) {
-      throw new Error(`Skill not found: ${skillName}`);
+  if (!skill || !skill.promptFile) {
+    throw new Error(`Skill not found: ${skillName}`);
   }
 
   const content = fs.readFileSync(skill.promptFile, "utf-8");
@@ -112,92 +181,55 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
 // ------------------------------------------------------------------
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  const tools = [];
-  
-  // Spring Reviewer Tool
-  if (registry.skills.has("spring_reviewer")) {
-      tools.push({
-          name: "spring_reviewer_analyze",
-          description: "Run PMD analysis for Spring projects",
-          inputSchema: {
-              type: "object",
-              properties: {
-                  target_path: {
-                      type: "string",
-                      description: "Absolute path to code"
-                  }
-              },
-              required: ["target_path"]
-          }
-      });
-  }
-  
+  const tools = registry.getAllTools();
   return { tools };
 });
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: args } = request.params;
+  const { name, arguments: args } = request.params;
 
-    if (name === "spring_reviewer_analyze") {
-        const skill = registry.skills.get("spring_reviewer");
-        const targetPath = args.target_path;
-
-        if (!skill || !targetPath) {
-            throw new Error("Invalid arguments");
-        }
-
-        // We will call pmd-bootstrap.js (Node version)
-        // Ensure that file exists
-        const scriptPath = path.join(skill.path, "scripts", "pmd-bootstrap.js");
-        if (!fs.existsSync(scriptPath)) {
-            throw new Error(`Bootstrap script not found at ${scriptPath}`);
-        }
-
-        return new Promise((resolve, reject) => {
-            const child = spawn("node", [scriptPath, targetPath], {
-                stdio: ["ignore", "pipe", "pipe"],
-            });
-
-            let output = "";
-            let errorOutput = "";
-
-            child.stdout.on("data", (data) => output += data.toString());
-            child.stderr.on("data", (data) => errorOutput += data.toString());
-
-            child.on("close", (code) => {
-                if (code === 0) {
-                    resolve({
-                        content: [{ type: "text", text: output + "\n" + errorOutput }],
-                    });
-                } else {
-                    resolve({
-                        isError: true,
-                        content: [{ type: "text", text: `Error (Exit Code ${code}):\n${errorOutput}\n${output}` }],
-                    });
-                }
-            });
-            
-             child.on("error", (err) => {
-                 resolve({
-                     isError: true,
-                     content: [{ type: "text", text: `Failed to spawn process: ${err.message}`}]
-                 });
-             });
-        });
-    }
-
+  const tool = registry.getTool(name);
+  if (!tool) {
     throw new Error(`Tool not found: ${name}`);
-});
+  }
 
+  const skill = registry.skills.get(tool.skillName);
+  if (!skill) {
+    throw new Error(`Skill not found: ${tool.skillName}`);
+  }
+
+  // Build arguments array from input schema
+  const scriptPath = getToolScriptPath(skill.path, tool.script);
+  if (!fs.existsSync(scriptPath)) {
+    throw new Error(`Tool script not found: ${scriptPath}`);
+  }
+
+  // Convert args object to array based on inputSchema required fields
+  const toolArgs = [];
+  if (tool.inputSchema.properties) {
+    for (const prop of Object.keys(tool.inputSchema.properties)) {
+      if (args[prop] !== undefined) {
+        toolArgs.push(args[prop]);
+      }
+    }
+  }
+
+  return runNodeScript(scriptPath, toolArgs);
+});
 
 // Start Server
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Java Architect Skills Server running on stdio");
+  const skillCount = registry.skills.size;
+  const toolCount = registry.getAllTools().length;
+  const promptCount = registry.getAllPrompts().length;
+  error(
+    `Java Architect Skills Server running: ${skillCount} skills, ${toolCount} tools, ${promptCount} prompts`
+  );
 }
 
 main().catch((error) => {
-  console.error("Fatal error:", error);
+  error("Fatal error:" + error);
   process.exit(1);
 });

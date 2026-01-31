@@ -1,0 +1,45 @@
+{
+  "name": "spring-reviewer",
+  "version": "1.0.0",
+  "displayName": "Spring Reviewer",
+  "description": "Spring Boot code auditor combining static analysis (PMD) with LLM semantic understanding",
+  "category": "analyzers",
+  "author": "zmlio",
+  "tags": ["spring", "code-analysis", "pmd", "aop", "security"],
+  "tools": [
+    {
+      "name": "analyze",
+      "description": "Run PMD static analysis for Spring projects",
+      "script": "scripts/analyze.js",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target_path": {
+            "type": "string",
+            "description": "Absolute path to code"
+          }
+        },
+        "required": ["target_path"]
+      }
+    },
+    {
+      "name": "review",
+      "description": "Progressive code review combining PMD + LLM semantic analysis with call chain tracing",
+      "script": "scripts/review.js",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target_path": {
+            "type": "string",
+            "description": "Absolute path to code"
+          }
+        },
+        "required": ["target_path"]
+      }
+    }
+  ],
+  "requirements": {
+    "runtime": "node",
+    "dependencies": ["adm-zip"]
+  }
+}
