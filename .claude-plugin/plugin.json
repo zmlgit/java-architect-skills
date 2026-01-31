@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/docs/plugin-schema.json",
+  "name": "java-architect-skills",
+  "version": "1.0.0",
+  "description": "A collection of MCP skills for Java Architects (Spring Reviewer, DB Architect, etc.)",
+  "commands": [
+    {
+      "name": "java-architect",
+      "description": "Start the Java Architect MCP Server",
+      "usage": "java-architect"
+    }
+  ],
+  "mcpServers": {
+    "java-architect": {
+      "command": "node",
+      "args": ["src/server.js"]
+    }
+  }
+}
