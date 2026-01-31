@@ -1,0 +1,51 @@
+{
+  "$schema": "https://raw.githubusercontent.com/zmlgit/java-architect-skills/main/config-schema.json",
+  "refactor": {
+    "longMethodLines": 50,
+    "longParameterCount": 5,
+    "godClassLines": 500,
+    "manyMethodsCount": 20,
+    "magicNumberThreshold": 3
+  },
+  "architecture": {
+    "interfaceMethodLimit": 10,
+    "implementsInterfaceLimit": 5,
+    "instanceofLimit": 3,
+    "nativeQueryLimit": 2,
+    "avgMethodLines": 20
+  },
+  "scores": {
+    "excellent": 5,
+    "good": 4,
+    "fair": 3,
+    "poor": 2,
+    "critical": 1
+  },
+  "output": {
+    "format": "markdown",
+    "includeSnippets": true,
+    "severityFilter": "all",
+    "saveReports": true
+  },
+  "cache": {
+    "enabled": true,
+    "directory": ".java-architect-cache",
+    "ttl": 86400000
+  },
+  "analysis": {
+    "ignorePatterns": [
+      "node_modules",
+      ".git",
+      "target",
+      "build",
+      ".idea",
+      "dist",
+      "out"
+    ],
+    "excludeFiles": [
+      "*Test.java",
+      "*Tests.java",
+      "*Mock*.java"
+    ]
+  }
+}
