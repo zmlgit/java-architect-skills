@@ -10,11 +10,7 @@
     {
       "name": "java-architect-skills",
       "description": "MCP Server for Spring, Database and Cloud Native architecture reviews.",
-      "source": {
-        "type": "github",
-        "owner": "zmlgit",
-        "repo": "java-architect-skills"
-      }
+      "source": "github:zmlgit/java-architect-skills"
     }
   ]
 }
