@@ -28,10 +28,10 @@ async function resume(targetPath) {
   }
 
   // Create workers
-  const skillsPath = path.join(__dirname, "../../../skills");
+  const skillsPath = path.join(__dirname, "../../..");
   const workers = [
-    createWorker("analyzer", { skillsPath }),
-    createWorker("architect", { skillsPath })
+    createWorker("analyzer", { skillsPath, projectPath: targetPath }),
+    createWorker("architect", { skillsPath, projectPath: targetPath })
   ];
 
   // Create master agent with existing session

@@ -24,7 +24,9 @@ async function analyze(targetPath, options = {}) {
   log(`Parallel: ${parallel ? "enabled" : "disabled"}\n`);
 
   // Create workers
-  const skillsPath = path.join(__dirname, "../../../skills");
+  // __dirname is .../src/skills/agents/master-agent/scripts
+  // Go up 4 levels to reach src/skills
+  const skillsPath = path.join(__dirname, "../../..");
   const workers = [
     createWorker("analyzer", { skillsPath, projectPath: targetPath }),
     createWorker("architect", { skillsPath, projectPath: targetPath })

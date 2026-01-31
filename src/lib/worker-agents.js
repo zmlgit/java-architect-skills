@@ -58,17 +58,30 @@ class WorkerAgent {
 
   /**
    * Parse JSON output from script
+   * Handles both objects {...} and arrays [...] embedded in text output
    */
   parseScriptOutput(output) {
     try {
-      // Find JSON in output (might be embedded in other text)
-      const jsonMatch = output.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+      // Try parsing as-is first
+      try {
+        return JSON.parse(output);
+      } catch {}
+
+      // Find JSON array in output
+      const arrayMatch = output.match(/\[[\s\S]*\]/);
+      if (arrayMatch) {
+        return JSON.parse(arrayMatch[0]);
       }
-      return JSON.parse(output);
+
+      // Find JSON object in output
+      const objectMatch = output.match(/\{[\s\S]*\}/);
+      if (objectMatch) {
+        return JSON.parse(objectMatch[0]);
+      }
+
+      return { raw: output, error: "No JSON found" };
     } catch (e) {
-      return { raw: output };
+      return { raw: output, error: e.message };
     }
   }
 }

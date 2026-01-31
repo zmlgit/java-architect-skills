@@ -22,12 +22,17 @@ const PMD_URLS = [
   `https://repo1.maven.org/maven2/net/sourceforge/pmd/pmd-dist/${PMD_VERSION}/pmd-dist-${PMD_VERSION}-bin.zip`
 ];
 
-const USER_HOME = process.env.HOME || process.env.USERPROFILE;
-const TOOLS_DIR = path.join(USER_HOME, ".spring-reviewer", "tools");
-const PMD_DIR = path.join(TOOLS_DIR, `pmd-bin-${PMD_VERSION}`);
-const PMD_BIN = path.join(PMD_DIR, "bin", process.platform === "win32" ? "pmd.bat" : "pmd");
+// Get paths function - avoids process access at module level
+function getPaths() {
+  const USER_HOME = process.env.HOME || process.env.USERPROFILE;
+  const TOOLS_DIR = path.join(USER_HOME, ".spring-reviewer", "tools");
+  const PMD_DIR = path.join(TOOLS_DIR, `pmd-bin-${PMD_VERSION}`);
+  const PMD_BIN = path.join(PMD_DIR, "bin", process.platform === "win32" ? "pmd.bat" : "pmd");
+  return { USER_HOME, TOOLS_DIR, PMD_DIR, PMD_BIN };
+}
 
 async function installPmd() {
+  const { TOOLS_DIR, PMD_DIR, PMD_BIN } = getPaths();
   if (!fs.existsSync(TOOLS_DIR)) fs.mkdirSync(TOOLS_DIR, { recursive: true });
 
   const zipPath = path.join(TOOLS_DIR, `pmd-${PMD_VERSION}.zip`);
@@ -60,6 +65,7 @@ async function installPmd() {
 }
 
 function runPmd(targetPath, rulesPath) {
+  const { PMD_BIN } = getPaths();
   log(`Analyzing: ${targetPath}`);
 
   return runCommand(PMD_BIN, [
@@ -107,6 +113,8 @@ function simplifyResults(pmdData) {
 // --- Main ---
 
 (async () => {
+  const { PMD_BIN } = getPaths();
+
   // 1. Check Install
   if (!fs.existsSync(PMD_BIN)) {
     const installed = await installPmd();
