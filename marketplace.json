@@ -1,8 +1,17 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "java-architect-skills-marketplace",
+  "version": "1.0.0",
+  "description": "MCP skills for Java Architects - Spring code review, PMD analysis, and best practices",
+  "owner": {
+    "name": "zmlio"
+  },
   "plugins": [
     {
       "name": "java-architect-skills",
-      "source": "."
+      "description": "Spring Boot code auditor with PMD static analysis and LLM semantic analysis",
+      "source": "./",
+      "category": "development"
     }
   ]
 }
