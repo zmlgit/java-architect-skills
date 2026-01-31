@@ -1,0 +1,8 @@
+{
+  "plugins": [
+    {
+      "name": "java-architect-skills",
+      "source": "."
+    }
+  ]
+}
