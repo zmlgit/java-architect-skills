@@ -13,10 +13,10 @@ A collection of **Agentic Skills** designed to augment Java Architects. Built on
 ## 🚀 Installation
 
 ### 1-Click Installation (Recommended for Local Use)
-Since you have the code locally, run the included script to configure Claude Desktop automatically:
+Since you have the code locally, run the included script. This will also **automatically setup the Python environment** and install dependencies:
 
 ```bash
-# Run the installation script
+# Auto-setup venv and install
 python3 scripts/install.py
 ```
 
