@@ -20,10 +20,10 @@ Run the included Node.js script to configure Claude Desktop automatically:
 node scripts/install.js
 ```
 
-### Claude Marketplace (Future)
-Once the skill is registered in the marketplace:
+### Skills CLI (e.g. Claude Code)
+You can install directly using the `skills` CLI:
 ```bash
-/plugin install zmlgit/java-architect-skills
+npx skills add https://github.com/zmlgit/java-architect-skills --skill java-architect-skills
 ```
 
 ### 1-Click Installation (Claude Desktop)
