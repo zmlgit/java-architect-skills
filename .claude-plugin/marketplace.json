@@ -1,14 +1,20 @@
 {
   "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/docs/marketplace-schema.json",
-  "name": "Java Architect Skills Marketplace",
-  "maintainer": "zmlgit",
+  "name": "java-architect-skills-marketplace",
   "description": "Marketplace for Java Architect MCP Skills",
+  "owner": {
+    "name": "zmlgit",
+    "url": "https://github.com/zmlgit"
+  },
   "plugins": [
     {
-      "id": "java-architect-skills",
-      "name": "Java Architect Skills",
+      "name": "java-architect-skills",
       "description": "MCP Server for Spring, Database and Cloud Native architecture reviews.",
-      "url": "https://github.com/zmlgit/java-architect-skills"
+      "source": {
+        "type": "github",
+        "owner": "zmlgit",
+        "repo": "java-architect-skills"
+      }
     }
   ]
 }
