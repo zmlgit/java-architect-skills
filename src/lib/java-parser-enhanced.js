@@ -143,7 +143,7 @@ function tokenize(content) {
     }
 
     // Operators and separators
-    if ("+-*/%&|^~!<>=").includes(char)) {
+    if ("+-*/%&|^~!<>=".includes(char)) {
       let op = char;
       i++;
       if ("+-*/%&|^<>=".includes(content[i])) {

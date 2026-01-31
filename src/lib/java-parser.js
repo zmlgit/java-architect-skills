@@ -9,7 +9,7 @@ import path from "path";
 
 // Re-export from enhanced parser
 export {
-  parseClassInfo as parseClassInfoEnhanced,
+  parseClassInfoEnhanced,
   countLOC,
   findJavaFiles,
   extractMethodsEnhanced

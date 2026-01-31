@@ -7,6 +7,7 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import { findJavaFiles } from "./java-parser.js";
 
 /**
  * Analysis State Structure
@@ -279,7 +280,7 @@ class MasterAgent {
 
     console.error(`   Found ${scanResult.totalFiles} Java files`);
     console.error(`   Plan: ${this.plan.chunks.length} chunks`);
-    console.error(`   Estimated time: ${this.plan.estimatedTime} seconds\n");
+    console.error(`   Estimated time: ${this.plan.estimatedTime} seconds\n`);
 
     this.state.metadata.plan = this.plan;
     this.state.saveCheckpoint(this.checkpointDir);
@@ -439,7 +440,6 @@ class MasterAgent {
    */
   createChunks() {
     const chunks = [];
-    const { findJavaFiles } = require("./java-parser.js");
     const allFiles = findJavaFiles(this.projectPath);
 
     for (let i = 0; i < allFiles.length; i += this.maxChunkSize) {

@@ -14,7 +14,7 @@ class WorkerAgent {
   constructor(options = {}) {
     this.type = options.type || "analyzer";
     this.name = options.name || `${this.type}-worker`;
-    this skillsPath = options.skillsPath || path.join(process.cwd(), "src", "skills");
+    this.skillsPath = options.skillsPath || path.join(process.cwd(), "src", "skills");
   }
 
   /**
@@ -80,6 +80,7 @@ class WorkerAgent {
 class CodeAnalysisWorker extends WorkerAgent {
   constructor(options) {
     super({ ...options, type: "analyzer" });
+    this.projectPath = options.projectPath;
   }
 
   async analyze(chunk) {
@@ -90,30 +91,43 @@ class CodeAnalysisWorker extends WorkerAgent {
       metrics: {}
     };
 
-    // Run PMD analysis if available
+    // For PMD analysis, we pass the entire project path
+    // PMD will scan all Java files in the project
     try {
       const pmdScript = path.join(this.skillsPath, "analyzers", "spring-reviewer", "scripts", "analyze.js");
-      if (fs.existsSync(pmdScript)) {
-        const { stdout } = await this.runScript(pmdScript, [chunk.files[0]]); // Analyze first file as sample
+      if (fs.existsSync(pmdScript) && this.projectPath) {
+        const { stdout } = await this.runScript(pmdScript, [this.projectPath]);
         const pmdResults = this.parseScriptOutput(stdout);
         results.pmd = pmdResults;
-        results.issues.push(...(pmdResults.files || []));
+        // Filter issues to only include files in this chunk
+        const chunkFileSet = new Set(chunk.files);
+        if (Array.isArray(pmdResults)) {
+          results.issues.push(...pmdResults.filter(issue => chunkFileSet.has(issue.file)));
+        }
       }
     } catch (e) {
       // PMD not available, continue without it
+      console.error(`PMD analysis error: ${e.message}`);
     }
 
     // Run refactoring analysis
     try {
       const refactorScript = path.join(this.skillsPath, "refactors", "spring-refactor", "scripts", "analyze.js");
-      if (fs.existsSync(refactorScript)) {
-        const { stdout } = await this.runScript(refactorScript, [chunk.files[0]]);
+      if (fs.existsSync(refactorScript) && this.projectPath) {
+        const { stdout } = await this.runScript(refactorScript, [this.projectPath]);
         const refactorResults = this.parseScriptOutput(stdout);
-        results.refactor = refactorResults.opportunities || [];
-        results.issues.push(...(results.refactor || []));
+        results.refactor = refactorResults.issues || refactorResults.opportunities || [];
+        // Filter to only include files in this chunk
+        const chunkFileSet = new Set(chunk.files);
+        if (Array.isArray(results.refactor)) {
+          results.issues.push(...results.refactor.filter(issue =>
+            issue.file && chunkFileSet.has(issue.file)
+          ));
+        }
       }
     } catch (e) {
       // Refactor not available
+      console.error(`Refactor analysis error: ${e.message}`);
     }
 
     // Basic file statistics
