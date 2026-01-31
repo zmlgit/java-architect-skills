@@ -1,11 +1,12 @@
 /**
- * Worker Agent Interface and Implementations
- * Workers handle specific analysis tasks under Master Agent direction
+ * Worker Agent - CLI Tool Runner
+ * Workers run mature CLI tools and parse their output
  */
 
-import { spawn } from "child_process";
-import path from "path";
 import fs from "fs";
+import path from "path";
+import { CliTool, ResultParser, TOOLS } from "./cli-tool.js";
+import { log, success, warn, error } from "./logger.js";
 
 /**
  * Base Worker Agent
@@ -14,86 +15,37 @@ class WorkerAgent {
   constructor(options = {}) {
     this.type = options.type || "analyzer";
     this.name = options.name || `${this.type}-worker`;
-    this.skillsPath = options.skillsPath || path.join(process.cwd(), "src", "skills");
+    this.projectPath = options.projectPath;
   }
 
-  /**
-   * Analyze a chunk of files
-   */
   async analyze(chunk) {
     throw new Error("analyze() must be implemented by subclass");
   }
 
   /**
-   * Run a script with file list
+   * Install a tool if not already installed
    */
-  async runScript(scriptPath, args, options = {}) {
-    return new Promise((resolve, reject) => {
-      const process = spawn("node", [scriptPath, ...args], {
-        cwd: process.cwd(),
-        env: { ...process.env, NODE_ENV: "production" },
-        ...options
-      });
-
-      let stdout = "";
-      let stderr = "";
-
-      process.stdout.on("data", (data) => {
-        stdout += data.toString();
-      });
-
-      process.stderr.on("data", (data) => {
-        stderr += data.toString();
-      });
-
-      process.on("close", (code) => {
-        if (code === 0) {
-          resolve({ stdout, stderr, code });
-        } else {
-          reject(new Error(`Script failed with code ${code}: ${stderr}`));
-        }
-      });
-    });
-  }
-
-  /**
-   * Parse JSON output from script
-   * Handles both objects {...} and arrays [...] embedded in text output
-   */
-  parseScriptOutput(output) {
-    try {
-      // Try parsing as-is first
-      try {
-        return JSON.parse(output);
-      } catch {}
-
-      // Find JSON array in output
-      const arrayMatch = output.match(/\[[\s\S]*\]/);
-      if (arrayMatch) {
-        return JSON.parse(arrayMatch[0]);
+  async ensureTool(toolKey) {
+    const tool = new CliTool(toolKey);
+    if (!tool.isInstalled()) {
+      log(`Installing ${tool.name}...`);
+      const installed = await tool.install();
+      if (!installed) {
+        throw new Error(`Failed to install ${tool.name}`);
       }
-
-      // Find JSON object in output
-      const objectMatch = output.match(/\{[\s\S]*\}/);
-      if (objectMatch) {
-        return JSON.parse(objectMatch[0]);
-      }
-
-      return { raw: output, error: "No JSON found" };
-    } catch (e) {
-      return { raw: output, error: e.message };
+      success(`${tool.name} installed`);
     }
+    return tool;
   }
 }
 
 /**
- * Code Analysis Worker
- * Performs PMD and refactoring analysis
+ * PMD Analysis Worker
+ * Runs PMD static analysis
  */
-class CodeAnalysisWorker extends WorkerAgent {
+class PMDWorker extends WorkerAgent {
   constructor(options) {
-    super({ ...options, type: "analyzer" });
-    this.projectPath = options.projectPath;
+    super({ ...options, type: "pmd" });
   }
 
   async analyze(chunk) {
@@ -104,54 +56,42 @@ class CodeAnalysisWorker extends WorkerAgent {
       metrics: {}
     };
 
-    // For PMD analysis, we pass the entire project path
-    // PMD will scan all Java files in the project
     try {
-      const pmdScript = path.join(this.skillsPath, "analyzers", "spring-reviewer", "scripts", "analyze.js");
-      if (fs.existsSync(pmdScript) && this.projectPath) {
-        const { stdout } = await this.runScript(pmdScript, [this.projectPath]);
-        const pmdResults = this.parseScriptOutput(stdout);
-        results.pmd = pmdResults;
-        // Filter issues to only include files in this chunk
-        const chunkFileSet = new Set(chunk.files);
-        if (Array.isArray(pmdResults)) {
-          results.issues.push(...pmdResults.filter(issue => chunkFileSet.has(issue.file)));
-        }
+      const tool = await this.ensureTool("PMD");
+
+      // Get rules file
+      const rulesPath = path.join(process.cwd(), "src", "skills", "analyzers", "spring-reviewer", "config", "critical-rules.xml");
+      if (!fs.existsSync(rulesPath)) {
+        throw new Error(`PMD rules file not found: ${rulesPath}`);
       }
+
+      // Run PMD on the project (PMD handles all files)
+      const { stdout, exitCode } = await tool.run([
+        "check",
+        "-d", this.projectPath,
+        "-R", rulesPath,
+        "-f", "json",
+        "--no-cache"
+      ]);
+
+      // Parse results
+      const allIssues = ResultParser.parsePMD(stdout);
+
+      // Filter to only include files in this chunk
+      const chunkFileSet = new Set(chunk.files);
+      results.issues = allIssues.filter(issue => chunkFileSet.has(issue.file));
+
+      // Metrics
+      results.metrics = {
+        fileCount: chunk.files.length,
+        totalLines: this.countLines(chunk),
+        issueCount: results.issues.length,
+        toolVersion: TOOLS.PMD.version
+      };
+
     } catch (e) {
-      // PMD not available, continue without it
-      console.error(`PMD analysis error: ${e.message}`);
-    }
-
-    // Run refactoring analysis
-    try {
-      const refactorScript = path.join(this.skillsPath, "refactors", "spring-refactor", "scripts", "analyze.js");
-      if (fs.existsSync(refactorScript) && this.projectPath) {
-        const { stdout } = await this.runScript(refactorScript, [this.projectPath]);
-        const refactorResults = this.parseScriptOutput(stdout);
-        results.refactor = refactorResults.issues || refactorResults.opportunities || [];
-        // Filter to only include files in this chunk
-        const chunkFileSet = new Set(chunk.files);
-        if (Array.isArray(results.refactor)) {
-          results.issues.push(...results.refactor.filter(issue =>
-            issue.file && chunkFileSet.has(issue.file)
-          ));
-        }
-      }
-    } catch (e) {
-      // Refactor not available
-      console.error(`Refactor analysis error: ${e.message}`);
-    }
-
-    // Basic file statistics
-    results.metrics = {
-      fileCount: chunk.files.length,
-      totalLines: this.countLines(chunk),
-      avgLinesPerFile: 0
-    };
-
-    if (chunk.files.length > 0) {
-      results.metrics.avgLinesPerFile = Math.round(results.metrics.totalLines / chunk.files.length);
+      error(`PMD analysis error: ${e.message}`);
+      results.error = e.message;
     }
 
     return results;
@@ -171,35 +111,42 @@ class CodeAnalysisWorker extends WorkerAgent {
 }
 
 /**
- * Architecture Review Worker
- * Performs SOLID and layer analysis
+ * SpotBugs Worker
+ * Runs SpotBugs bug detection
  */
-class ArchitectureWorker extends WorkerAgent {
+class SpotBugsWorker extends WorkerAgent {
   constructor(options) {
-    super({ ...options, type: "architect" });
+    super({ ...options, type: "spotbugs" });
   }
 
   async analyze(chunk) {
     const results = {
       chunkId: chunk.id,
       files: chunk.files,
-      solidScores: {},
-      layers: {},
-      patterns: []
+      issues: [],
+      metrics: {}
     };
 
-    // Run architecture review
     try {
-      const archScript = path.join(this.skillsPath, "architects", "java-architect", "scripts", "review.js");
-      if (fs.existsSync(archScript)) {
-        const { stdout } = await this.runScript(archScript, [chunk.files[0]]);
-        const archResults = this.parseScriptOutput(stdout);
-        results.solidScores = archResults.solidScores || {};
-        results.layers = archResults.layers || {};
-        results.patterns = archResults.designPatterns || [];
-      }
+      const tool = await this.ensureTool("SPOTBUGS");
+
+      // SpotBugs needs compiled classes
+      // For now, run on the project and filter results
+      const { stdout, exitCode } = await tool.run([
+        "-textui",
+        "-low",
+        this.projectPath
+      ]);
+
+      // Parse results (will implement XML parsing)
+      results.issues = ResultParser.parseSpotBugs(stdout);
+      results.metrics = {
+        toolVersion: TOOLS.SPOTBUGS.version
+      };
+
     } catch (e) {
-      // Architecture review not available
+      error(`SpotBugs analysis error: ${e.message}`);
+      results.error = e.message;
     }
 
     return results;
@@ -207,76 +154,114 @@ class ArchitectureWorker extends WorkerAgent {
 }
 
 /**
- * Verification Worker
- * Cross-validates results to reduce hallucinations
+ * Checkstyle Worker
+ * Runs Checkstyle for code style checking
  */
-class VerificationWorker extends WorkerAgent {
+class CheckstyleWorker extends WorkerAgent {
   constructor(options) {
-    super({ ...options, type: "verifier" });
+    super({ ...options, type: "checkstyle" });
   }
 
-  /**
-   * Verify analysis results
-   */
-  async verify(results) {
-    const verification = {
-      checked: 0,
-      passed: 0,
-      failed: 0,
-      issues: []
+  async analyze(chunk) {
+    const results = {
+      chunkId: chunk.id,
+      files: chunk.files,
+      issues: [],
+      metrics: {}
     };
 
-    // Cross-check for inconsistencies
-    for (const result of results) {
-      verification.checked++;
+    try {
+      const tool = await this.ensureTool("CHECKSTYLE");
 
-      // Verify file references exist
-      if (result.issues) {
-        for (const issue of result.issues) {
-          if (issue.file) {
-            if (fs.existsSync(issue.file)) {
-              verification.passed++;
-            } else {
-              verification.failed++;
-              verification.issues.push({
-                type: "file_not_found",
-                file: issue.file
-              });
-            }
-          }
+      // Get config file
+      const configPath = path.join(process.cwd(), "src", "skills", "analyzers", "checkstyle", "config", "checkstyle.xml");
+      const defaultConfig = "/google_checks.xml"; // Use built-in Google style
+
+      const configFile = fs.existsSync(configPath) ? configPath : defaultConfig;
+
+      // Run on each file in chunk
+      const allIssues = [];
+      for (const file of chunk.files) {
+        try {
+          const { stdout } = await tool.run([
+            "-c", configFile,
+            "-f", "xml",
+            file
+          ]);
+          const fileIssues = ResultParser.parseCheckstyle(stdout);
+          allIssues.push(...fileIssues);
+        } catch (e) {
+          // Skip files that can't be analyzed
         }
       }
+
+      results.issues = allIssues;
+      results.metrics = {
+        fileCount: chunk.files.length,
+        issueCount: allIssues.length,
+        toolVersion: TOOLS.CHECKSTYLE.version
+      };
+
+    } catch (e) {
+      error(`Checkstyle analysis error: ${e.message}`);
+      results.error = e.message;
     }
 
-    return verification;
+    return results;
+  }
+}
+
+/**
+ * Multi-Tool Worker
+ * Runs multiple tools in parallel
+ */
+class MultiToolWorker extends WorkerAgent {
+  constructor(options) {
+    super({ ...options, type: "multi" });
+    this.tools = options.tools || ["pmd"];
   }
 
-  /**
-   * Detect potential hallucinations
-   */
-  detectHallucinations(results) {
-    const hallucinations = [];
+  async analyze(chunk) {
+    const results = {
+      chunkId: chunk.id,
+      files: chunk.files,
+      issues: [],
+      metrics: {},
+      toolResults: {}
+    };
 
-    // Check for impossible metrics
-    for (const result of results) {
-      if (result.metrics) {
-        if (result.metrics.avgLinesPerFile < 0) {
-          hallucinations.push({
-            type: "negative_avg_lines",
-            chunk: result.chunkId
-          });
-        }
-        if (result.metrics.totalLines > 1000000) { // Suspiciously large
-          hallucinations.push({
-            type: "unrealistic_line_count",
-            chunk: result.chunkId,
-            value: result.metrics.totalLines
-          });
-        }
+    // Run each tool
+    for (const toolKey of this.tools) {
+      let worker;
+      switch (toolKey.toLowerCase()) {
+        case "pmd":
+          worker = new PMDWorker({ projectPath: this.projectPath });
+          break;
+        case "spotbugs":
+          worker = new SpotBugsWorker({ projectPath: this.projectPath });
+          break;
+        case "checkstyle":
+          worker = new CheckstyleWorker({ projectPath: this.projectPath });
+          break;
+        default:
+          warn(`Unknown tool: ${toolKey}`);
+          continue;
+      }
+
+      if (worker) {
+        const toolResult = await worker.analyze(chunk);
+        results.toolResults[toolKey] = toolResult;
+        results.issues.push(...toolResult.issues);
       }
     }
 
-    return hallucinations;
+    // Aggregate metrics
+    results.metrics = {
+      totalIssues: results.issues.length,
+      toolsRun: Object.keys(results.toolResults)
+    };
+
+    return results;
   }
 }
 
@@ -284,13 +269,18 @@ class VerificationWorker extends WorkerAgent {
  * Worker Factory
  */
 export function createWorker(type, options) {
-  switch (type) {
+  switch (type.toLowerCase()) {
+    case "pmd":
+      return new PMDWorker(options);
+    case "spotbugs":
+      return new SpotBugsWorker(options);
+    case "checkstyle":
+      return new CheckstyleWorker(options);
     case "analyzer":
-      return new CodeAnalysisWorker(options);
+    case "multi":
+      return new MultiToolWorker({ ...options, tools: ["pmd"] });
     case "architect":
-      return new ArchitectureWorker(options);
-    case "verifier":
-      return new VerificationWorker(options);
+      return new MultiToolWorker({ ...options, tools: ["pmd"] });
     default:
       return new WorkerAgent(options);
   }
@@ -298,7 +288,8 @@ export function createWorker(type, options) {
 
 export {
   WorkerAgent,
-  CodeAnalysisWorker,
-  ArchitectureWorker,
-  VerificationWorker
+  PMDWorker,
+  SpotBugsWorker,
+  CheckstyleWorker,
+  MultiToolWorker
 };

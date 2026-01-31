@@ -7,7 +7,7 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { findJavaFiles } from "./java-parser.js";
+import { findJavaFiles } from "./cli-tool.js";
 
 /**
  * Analysis State Structure
@@ -383,7 +383,7 @@ class MasterAgent {
    * Scan project structure
    */
   async scanProject() {
-    const { findJavaFiles } = await import("./java-parser.js");
+    const { findJavaFiles } = await import("./cli-tool.js");
     const javaFiles = findJavaFiles(this.projectPath);
 
     // Group by package
@@ -475,7 +475,7 @@ class MasterAgent {
    * Aggregate results from all chunks
    */
   aggregateResults() {
-    const allResults = this.state.completedChunks.flatMap(c => c.result);
+    const allResults = this.state.completedChunks.map(c => c.result);
 
     const aggregated = {
       totalIssues: 0,
@@ -485,10 +485,10 @@ class MasterAgent {
 
     // Process results
     for (const result of allResults) {
-      if (result.issues) {
+      if (result && result.issues) {
         aggregated.totalIssues += result.issues.length || 0;
       }
-      if (result.report) {
+      if (result && result.report) {
         aggregated.reports.push(result.report);
       }
     }
